@@ -26,3 +26,10 @@ Clic sur un neurone ou une région = isoler + fiche · glisser = tourner · mole
 
 ## Capture (dev)
 `npx electron . --screenshot=out.png "--hash=scenario=vision&select=thalamus"`
+
+## Espèces et arène
+- Chaque espèce a sa fiche dans `src/species/` (régions, connexions, scénarios, IA, formes 3D). Choix dans le menu **Espèce**.
+- **Souris** : arène en boucle fermée (`src/arena.js`) — narines G/D → bulbes olfactifs, moustaches → cortex des tonneaux (côté opposé),
+  odeur de chat → amygdale + hypothalamus, ombre → colliculus. Le décodeur moteur lit l'activité G/D du cerveau pour la vitesse et la rotation.
+  Réglages dans `REGLAGES` en haut de `src/arena.js`.
+- Dev : `npx electron . --screenshot=out.png "--hash=espece=souris" "--js=document.getElementById('arene-ombre').click()"`

@@ -18,6 +18,24 @@
   <canvas id="scene"></canvas>
   <div id="labels"></div>
 
+  <div id="arene" class="glass" hidden>
+    <div class="arene-head">
+      <span class="arene-title">Arène</span>
+      <span id="arene-mode" class="arene-mode"></span>
+    </div>
+    <canvas id="arene-canvas" title="Clic : poser une graine"></canvas>
+    <div class="arene-stats">
+      <span>Graines mangées <b id="arene-mangees">0</b></span>
+      <span class="faim">Faim <i class="jauge"><i id="arene-faim"></i></i></span>
+    </div>
+    <div class="arene-btns">
+      <button id="arene-graine" title="Ajouter une graine au hasard">+ Graine</button>
+      <button id="arene-chat" title="Placer ou retirer un chat (odeur de prédateur)">Chat</button>
+      <button id="arene-ombre" title="Faire passer l'ombre d'un rapace">Ombre</button>
+      <button id="arene-reset" title="Recommencer">↺</button>
+    </div>
+  </div>
+
   <aside id="panel">
     <header class="brand">
       <svg viewBox="0 0 32 32" class="logo" aria-hidden="true">
@@ -30,6 +48,11 @@
         <p>Visualiseur de système neuronal</p>
       </div>
     </header>
+
+    <section>
+      <h2>Espèce</h2>
+      <select id="espece" class="espece"></select>
+    </section>
 
     <section>
       <h2>Scénarios</h2>
@@ -63,6 +86,7 @@
         <label><input type="checkbox" id="t-pulses" checked /> Impulsions</label>
         <label><input type="checkbox" id="t-labels" checked /> Étiquettes</label>
         <label><input type="checkbox" id="t-rotate" checked /> Rotation auto</label>
+        <label id="t-arene-wrap" hidden><input type="checkbox" id="t-arene" checked /> Arène</label>
       </div>
     </section>
 
@@ -83,6 +107,7 @@
     <button id="pause" title="Pause (Espace)">❚❚</button>
   </div>
 
+  <div id="right-col">
   <div id="info" class="glass" hidden>
     <div class="info-head">
       <span class="dot" id="i-dot"></span>
@@ -104,10 +129,21 @@
     </dl>
     <button id="i-stim" class="primary">⚡ Stimuler <kbd>S</kbd></button>
   </div>
+  <div id="chat" class="glass">
+    <div class="chat-title">Parler au cerveau <span id="chat-model"></span></div>
+    <div id="chat-log"></div>
+    <form id="chat-form">
+      <input id="chat-input" type="text" placeholder="Écris une situation…" autocomplete="off" />
+      <button type="submit">Envoyer</button>
+    </form>
+  </div>
+  </div>
 
   <div id="chart-wrap" class="glass">
     <div class="chart-title">Activité par région <span>(Hz, 12 dernières secondes)</span></div>
     <canvas id="chart"></canvas>
+  </div>
+
   </div>
 
   <div id="tooltip"></div>
