@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'" />
+  <title>Cortex</title>
+  <link rel="stylesheet" href="style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "../node_modules/three/build/three.module.js",
+        "three/addons/": "../node_modules/three/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+  <div id="labels"></div>
+
+  <aside id="panel">
+    <header class="brand">
+      <svg viewBox="0 0 32 32" class="logo" aria-hidden="true">
+        <circle cx="16" cy="16" r="3.2" />
+        <circle cx="6" cy="9" r="2" /><circle cx="26" cy="8" r="2" /><circle cx="25" cy="25" r="2" /><circle cx="7" cy="24" r="2" />
+        <path d="M16 16 6 9M16 16l10-8M16 16l9 9M16 16l-9 8" />
+      </svg>
+      <div>
+        <h1>Cortex</h1>
+        <p>Visualiseur de système neuronal</p>
+      </div>
+    </header>
+
+    <section>
+      <h2>Scénarios</h2>
+      <div id="scenarios" class="scenarios"></div>
+      <p id="scenario-desc" class="desc"></p>
+    </section>
+
+    <section>
+      <h2>Régions <span class="sub">clic pour isoler</span></h2>
+      <ul id="regions" class="regions"></ul>
+    </section>
+
+    <section>
+      <h2>Paramètres</h2>
+      <label class="slider"><span>Excitabilité</span><output id="o-excit">1.00</output>
+        <input id="excit" type="range" min="0.5" max="2" step="0.01" value="1" /></label>
+      <label class="slider"><span>Activité spontanée</span><output id="o-noise">1.00</output>
+        <input id="noise" type="range" min="0" max="3" step="0.01" value="1" /></label>
+      <label class="slider"><span>Vitesse de simulation</span><output id="o-speed">1.00×</output>
+        <input id="speed" type="range" min="0.1" max="2" step="0.01" value="1" /></label>
+      <label class="slider"><span>Lueur</span><output id="o-bloom">0.90</output>
+        <input id="bloom" type="range" min="0" max="2" step="0.01" value="0.9" /></label>
+    </section>
+
+    <section>
+      <h2>Affichage</h2>
+      <div class="toggles">
+        <label><input type="checkbox" id="t-shell" checked /> Enveloppe</label>
+        <label><input type="checkbox" id="t-tracts" checked /> Faisceaux</label>
+        <label><input type="checkbox" id="t-local" /> Connexions locales</label>
+        <label><input type="checkbox" id="t-pulses" checked /> Impulsions</label>
+        <label><input type="checkbox" id="t-labels" checked /> Étiquettes</label>
+        <label><input type="checkbox" id="t-rotate" checked /> Rotation auto</label>
+      </div>
+    </section>
+
+    <footer class="keys">
+      <span><kbd>Espace</kbd> pause</span>
+      <span><kbd>S</kbd> stimuler</span>
+      <span><kbd>1</kbd>–<kbd>7</kbd> scénarios</span>
+      <span><kbd>Échap</kbd> désélectionner</span>
+      <span><kbd>F11</kbd> plein écran</span>
+    </footer>
+  </aside>
+
+  <div id="stats" class="glass">
+    <div><b id="s-neurons">–</b><span>neurones</span></div>
+    <div><b id="s-syn">–</b><span>synapses</span></div>
+    <div><b id="s-spikes">–</b><span>potentiels d'action/s</span></div>
+    <div><b id="s-fps">–</b><span>i/s</span></div>
+    <button id="pause" title="Pause (Espace)">❚❚</button>
+  </div>
+
+  <div id="info" class="glass" hidden>
+    <div class="info-head">
+      <span class="dot" id="i-dot"></span>
+      <div>
+        <h3 id="i-name"></h3>
+        <p id="i-kind" class="kind"></p>
+      </div>
+      <button id="i-close" class="icon" title="Fermer (Échap)">✕</button>
+    </div>
+    <p id="i-fn" class="fn"></p>
+    <div class="info-rate">
+      <span>Activité</span><b id="i-rate">0.0 Hz</b>
+      <div class="bar"><i id="i-bar"></i></div>
+    </div>
+    <dl class="info-meta">
+      <dt>Neurones</dt><dd id="i-count"></dd>
+      <dt>Envoie vers</dt><dd id="i-out"></dd>
+      <dt>Reçoit de</dt><dd id="i-in"></dd>
+    </dl>
+    <button id="i-stim" class="primary">⚡ Stimuler <kbd>S</kbd></button>
+  </div>
+
+  <div id="chart-wrap" class="glass">
+    <div class="chart-title">Activité par région <span>(Hz, 12 dernières secondes)</span></div>
+    <canvas id="chart"></canvas>
+  </div>
+
+  <div id="tooltip"></div>
+  <div id="paused" hidden>EN PAUSE</div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

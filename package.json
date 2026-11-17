@@ -1,0 +1,16 @@
+{
+  "name": "cortex",
+  "version": "1.0.0",
+  "description": "Cortex — visualiseur 3D de système neuronal du cerveau",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "electron": "^45.3.3"
+  }
+}
