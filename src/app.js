@@ -4,10 +4,11 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { REGIONS, REGION_INDEX, generateNeurons } from './anatomy.js';
+import { REGIONS, REGION_INDEX, ESPECE, ESPECES, generateNeurons } from './anatomy.js';
 import { buildConnectome, NeuralSim, SIM_HZ, CONNECTIONS, tractControl } from './sim.js';
 import { buildShells } from './brain.js';
 import { SCENARIOS } from './scenarios.js';
+import { Arene, REGLAGES } from './arena.js';
 
 const $ = (id) => document.getElementById(id);
 const PANEL_W = 320;
@@ -28,7 +29,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#04060c');
 const camera = new THREE.PerspectiveCamera(40, 1, 0.01, 100);
-camera.position.set(-2.7, 1.0, 2.5);
+camera.position.set(...ESPECE.camera.position);
 
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
@@ -37,7 +38,7 @@ controls.minDistance = 0.8;
 controls.maxDistance = 9;
 controls.autoRotate = true;
 controls.autoRotateSpeed = 0.35;
-const HOME_TARGET = new THREE.Vector3(0, -0.15, -0.05);
+const HOME_TARGET = new THREE.Vector3(...ESPECE.camera.cible);
 controls.target.copy(HOME_TARGET);
 const targetGoal = HOME_TARGET.clone();
 
@@ -229,8 +230,8 @@ centroids.forEach((c, r) => {
   c.all.divideScalar(sim.regionSize[r]);
   if (c.nL) c.L.divideScalar(c.nL); else c.L.copy(c.all);
   if (c.nR) c.R.divideScalar(c.nR); else c.R.copy(c.all);
-  // Les structures médianes (tronc, cervelet) gardent un seul centre
-  if (Math.abs(c.L.x - c.R.x) < 0.5 && ['cerebellum', 'brainstem'].includes(REGIONS[r].id)) { c.L.copy(c.all); c.R.copy(c.all); }
+  // Les structures médianes (tronc, cervelet…) gardent un seul centre
+  if (REGIONS[r].median) { c.L.copy(c.all); c.R.copy(c.all); }
 });
 
 const labelEls = REGIONS.map((r) => {
@@ -258,6 +259,20 @@ function updateLabels() {
     el.classList.toggle('dim', selected >= 0 && selected !== k);
   });
 }
+
+// ---------------------------------------------------------------- Choix de l'espèce
+ESPECES.forEach((e) => {
+  const o = document.createElement('option');
+  o.value = e.id;
+  o.textContent = e.nom;
+  o.selected = e.id === ESPECE.id;
+  $('espece').appendChild(o);
+});
+$('espece').onchange = (e) => {
+  location.hash = `espece=${e.target.value}`;
+  location.reload();
+};
+document.title = `Cortex — ${ESPECE.nom}`;
 
 // ---------------------------------------------------------------- Scénarios & paramètres
 let scenario = SCENARIOS[0];
@@ -307,6 +322,118 @@ $('t-tracts').onchange = (e) => { tracts.visible = e.target.checked; };
 $('t-local').onchange = (e) => { localLines.visible = e.target.checked; };
 $('t-pulses').onchange = (e) => { pulsePoints.visible = e.target.checked; };
 $('t-rotate').onchange = (e) => { controls.autoRotate = e.target.checked; };
+
+// ---------------------------------------------------------------- Arène (espèces qui en ont une)
+const arene = ESPECE.arene ? new Arene(sim) : null;
+const areneVisible = () => !!arene && $('t-arene').checked;
+const MODES = {
+  exploration: ['Exploration', '#8592ad'], approche: ['Approche', '#ffb454'], 'évitement': ['Évitement', '#ff8a5c'],
+  'figée': ['Figée', '#ff4d6d'], fuite: ['Fuite !', '#ff3355'],
+};
+
+if (arene) {
+  $('t-arene-wrap').hidden = false;
+  $('arene').hidden = false;
+  $('t-arene').onchange = () => {
+    $('arene').hidden = !areneVisible();
+    if (!areneVisible()) sim.input.fill(0);
+    resize();
+  };
+  const cv = $('arene-canvas');
+  cv.addEventListener('click', (e) => {
+    const r = cv.getBoundingClientRect();
+    arene.ajouterGraine((e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height);
+  });
+  $('arene-graine').onclick = () => arene.ajouterGraine();
+  $('arene-chat').onclick = () => {
+    // Le chat apparaît dans le coin le plus éloigné de la souris
+    const m = arene.souris;
+    arene.basculerChat(m.x < 0.5 ? 0.82 : 0.18, m.y < 0.5 ? 0.82 : 0.18);
+    $('arene-chat').classList.toggle('on', !!arene.chat);
+  };
+  $('arene-ombre').onclick = () => arene.declencherOmbre();
+  $('arene-reset').onclick = () => { arene.reset(); $('arene-chat').classList.remove('on'); };
+}
+
+function dessinerArene() {
+  const cv = $('arene-canvas'), g = cv.getContext('2d');
+  const dpr = window.devicePixelRatio || 1, S = cv.clientWidth;
+  if (cv.width !== Math.round(S * dpr)) { cv.width = cv.height = Math.round(S * dpr); }
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const X = (x) => x * S, Y = (y) => (1 - y) * S;
+
+  // Sol
+  g.fillStyle = '#0a0f1c';
+  g.fillRect(0, 0, S, S);
+  g.strokeStyle = 'rgba(140,170,255,0.06)';
+  g.lineWidth = 1;
+  for (let k = 1; k < 10; k++) {
+    g.beginPath(); g.moveTo(k * S / 10, 0); g.lineTo(k * S / 10, S); g.moveTo(0, k * S / 10); g.lineTo(S, k * S / 10); g.stroke();
+  }
+
+  // Odeurs (halos) puis graines
+  const halo = (x, y, r, c) => {
+    const grad = g.createRadialGradient(X(x), Y(y), 0, X(x), Y(y), r * S);
+    grad.addColorStop(0, c); grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grad; g.beginPath(); g.arc(X(x), Y(y), r * S, 0, Math.PI * 2); g.fill();
+  };
+  if (arene.chat) halo(arene.chat.x, arene.chat.y, 0.4, 'rgba(255,60,90,0.28)');
+  for (const gr of arene.graines) halo(gr.x, gr.y, 0.2, 'rgba(255,180,84,0.18)');
+  for (const gr of arene.graines) {
+    g.fillStyle = '#ffd08a';
+    g.beginPath(); g.ellipse(X(gr.x), Y(gr.y), 4, 2.8, 0.6, 0, Math.PI * 2); g.fill();
+  }
+  if (arene.chat) {
+    g.font = '22px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('🐱', X(arene.chat.x), Y(arene.chat.y));
+  }
+
+  // Trace
+  const tr = arene.trace;
+  for (let k = 1; k < tr.length; k++) {
+    g.strokeStyle = `rgba(160,196,255,${(k / tr.length) * 0.45})`;
+    g.beginPath(); g.moveTo(X(tr[k - 1][0]), Y(tr[k - 1][1])); g.lineTo(X(tr[k][0]), Y(tr[k][1])); g.stroke();
+  }
+
+  // Souris
+  const m = arene.souris, c = arene.capteurs;
+  g.save();
+  g.translate(X(m.x), Y(m.y));
+  g.rotate(-m.a);
+  for (const [cote, s] of [[0, 1], [1, -1]]) {           // moustaches (rouges quand elles touchent)
+    const t = c['moustache' + cote] || 0;
+    g.strokeStyle = t > 0.05 ? `rgba(255,120,120,${0.5 + t / 2})` : 'rgba(220,230,255,0.45)';
+    g.lineWidth = 1;
+    for (const d of [-0.15, 0, 0.15]) {
+      const a = s * (0.75 + d), L = REGLAGES.longueurMoustache * S;
+      g.beginPath(); g.moveTo(9, s * 1.5); g.lineTo(9 + Math.cos(a) * L * 0.75, -Math.sin(a) * L * 0.75); g.stroke();
+    }
+  }
+  g.fillStyle = '#cfd6e6';
+  g.beginPath(); g.ellipse(-2, 0, 9, 6, 0, 0, Math.PI * 2); g.fill();        // corps
+  g.beginPath(); g.ellipse(7, 0, 5, 4, 0, 0, Math.PI * 2); g.fill();         // tête
+  g.fillStyle = '#ffadc6';
+  g.beginPath(); g.arc(4, 4, 2.2, 0, Math.PI * 2); g.arc(4, -4, 2.2, 0, Math.PI * 2); g.fill(); // oreilles
+  g.fillStyle = '#ff7eb6';
+  g.beginPath(); g.arc(12, 0, 1.4, 0, Math.PI * 2); g.fill();               // nez
+  g.strokeStyle = '#cfd6e6'; g.lineWidth = 1.2;
+  g.beginPath(); g.moveTo(-11, 0); g.quadraticCurveTo(-18, 5, -22, 1); g.stroke(); // queue
+  g.restore();
+
+  // Ombre du rapace
+  if (arene.ombre > 0) {
+    const k = 1 - arene.ombre / 1.5;
+    g.fillStyle = `rgba(0,0,0,${0.35 + 0.3 * k})`;
+    g.beginPath(); g.arc(X(m.x) + 30 * (1 - k), Y(m.y) - 30 * (1 - k), 20 + 60 * k, 0, Math.PI * 2); g.fill();
+  }
+
+  // Infos
+  const [label, col] = MODES[arene.mode] || MODES.exploration;
+  const mode = $('arene-mode');
+  mode.textContent = label; mode.style.color = col;
+  $('arene-mangees').textContent = arene.mangees;
+  $('arene-faim').style.width = `${arene.faim * 100}%`;
+}
 
 // ---------------------------------------------------------------- Régions : liste et sélection
 const regionItems = REGIONS.map((r, k) => {
@@ -399,6 +526,7 @@ function togglePause() {
 $('pause').onclick = togglePause;
 window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' && e.target.type === 'range' && e.key.startsWith('Arrow')) return;
+  if (e.target.tagName === 'INPUT' && e.target.type === 'text') return; // on tape dans le chat
   if (e.code === 'Space') { e.preventDefault(); togglePause(); }
   else if (e.key === 's' || e.key === 'S') stimulate();
   else if (e.key === 'Escape') select(-1);
@@ -453,7 +581,8 @@ function resize() {
   renderer.setSize(w, h, false);
   composer.setSize(w, h);
   camera.aspect = w / h;
-  viewShift = w > 900 ? PANEL_W / 2 : 0;
+  // Décale le cerveau pour le centrer dans l'espace libre (panneau à gauche, arène éventuelle)
+  viewShift = w > 900 ? (PANEL_W + (areneVisible() ? 316 : 0)) / 2 : 0;
   camera.setViewOffset(w, h, -viewShift, 0, w, h);
   camera.updateProjectionMatrix();
   const vp = h * renderer.getPixelRatio() * 0.5;
@@ -474,6 +603,7 @@ function frame(now) {
   last = now;
 
   if (!paused) {
+    if (areneVisible()) arene.update(dt * sliders.speed);
     acc += dt * SIM_HZ * sliders.speed;
     let steps = 0;
     while (acc >= 1 && steps < 24) { sim.step(); acc -= 1; steps++; }
@@ -486,6 +616,7 @@ function frame(now) {
     }
   }
   if (pulsePoints.visible) updatePulses(sim.tick + acc);
+  if (areneVisible()) dessinerArene();
 
   controls.target.lerp(targetGoal, 0.06);
   controls.update();
@@ -519,3 +650,108 @@ const hp = new URLSearchParams(location.hash.slice(1));
 const hs = SCENARIOS.find((s) => s.id === hp.get('scenario'));
 if (hs) applyScenario(hs);
 if (hp.has('select') && hp.get('select') in REGION_INDEX) select(REGION_INDEX[hp.get('select')]);
+
+// ---------------------------------------------------------------- Discussion avec l'IA locale (Ollama)
+const MODELE = 'qwen2.5:3b';
+const IA = ESPECE.ia;
+const COMPORTEMENTS = IA.comportements;
+
+// Les exemples listent toutes les régions (0 pour celles qui ne sont pas indiquées)
+const exemplesIA = IA.exemples.map((ex) => `Message : ${ex.message}
+Réponse : ${JSON.stringify({
+    ...ex.reponse,
+    regions: Object.fromEntries(REGIONS.map((r) => [r.id, ex.reponse.regions[r.id] ?? 0])),
+  })}`).join('\n\n');
+
+const systeme = `Tu simules le cerveau ${IA.sujet}.
+Régions :
+${REGIONS.map((r) => `- ${r.id} : ${r.fn}`).join('\n')}
+
+Règles :
+- Donne une intensité entre 0 et 1 pour chaque région.
+- 0 = inactive. La plupart des régions doivent rester à 0 ou presque.
+- 0.3 = faible, 0.6 = nette, 0.9 = très forte (rare).
+- reponse : ${IA.consigneReponse}
+
+Exemples :
+${exemplesIA}`;
+
+const schemaIA = {
+  type: 'object',
+  properties: {
+    regions: {
+      type: 'object',
+      properties: Object.fromEntries(REGIONS.map((r) => [r.id, { type: 'number' }])),
+      required: REGIONS.map((r) => r.id),
+    },
+    comportement: { type: 'string', enum: COMPORTEMENTS },
+    reponse: { type: 'string' },
+  },
+  required: ['regions', 'comportement', 'reponse'],
+};
+
+const historique = [];
+$('chat-model').textContent = `· ${ESPECE.nom.toLowerCase()} · ${MODELE}`;
+
+function ajouterMessage(classe, texte) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + classe;
+  div.textContent = texte;
+  $('chat-log').appendChild(div);
+  $('chat-log').scrollTop = $('chat-log').scrollHeight;
+  return div;
+}
+
+function ajouterTag(parent, texte, couleur) {
+  const t = document.createElement('span');
+  t.className = 'tag';
+  t.textContent = texte;
+  t.style.color = couleur;
+  parent.appendChild(t);
+}
+
+$('chat-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const texte = $('chat-input').value.trim();
+  if (!texte) return;
+  const bouton = $('chat-form').querySelector('button');
+  $('chat-input').value = '';
+  bouton.disabled = true;
+
+  ajouterMessage('moi', texte);
+  const bulle = ajouterMessage('cerveau', '…');
+  historique.push({ role: 'user', content: texte });
+
+  try {
+    const rep = await window.cortex.demander({
+      modele: MODELE,
+      schema: schemaIA,
+      messages: [{ role: 'system', content: systeme }, ...historique.slice(-10)],
+    });
+    console.log('Réponse IA :', rep);
+    historique.push({ role: 'assistant', content: JSON.stringify(rep) });
+
+    bulle.textContent = IA.guillemets ? `« ${rep.reponse} »` : rep.reponse;
+    const tags = document.createElement('div');
+    tags.className = 'tags';
+    ajouterTag(tags, rep.comportement, '#e3e9f7');
+    Object.entries(rep.regions)
+      .filter(([id, v]) => v > 0.05 && id in REGION_INDEX)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([id, v]) => {
+        const r = REGIONS[REGION_INDEX[id]];
+        const k = Math.min(1, Math.max(0, v));
+        ajouterTag(tags, `${r.name} ${Math.round(k * 100)}%`, r.color);
+        sim.stimulate(REGION_INDEX[id], k * 80); // allume la région dans la 3D
+      });
+    bulle.appendChild(tags);
+    $('chat-log').scrollTop = $('chat-log').scrollHeight;
+  } catch (err) {
+    bulle.classList.add('erreur');
+    bulle.textContent = 'Erreur : ' + (err.message || err).toString().replace(/^Error invoking remote method 'demander-ia': /, '');
+    historique.pop();
+  } finally {
+    bouton.disabled = false;
+    $('chat-input').focus();
+  }
+});

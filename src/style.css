@@ -110,3 +110,52 @@ button.primary kbd { margin-left: 6px; }
 #paused { position: fixed; top: 22px; left: calc(50% + var(--panel-w) / 2); transform: translateX(-50%); z-index: 4; letter-spacing: 0.3em;
   font-size: 11px; color: #ffd166; padding: 6px 14px; border: 1px solid #ffd16655; border-radius: 20px; background: rgba(40, 30, 5, 0.5); }
 #paused[hidden] { display: none; }
+
+/* ---------- Discussion IA ---------- */
+#chat { position: fixed; right: 16px; bottom: 182px; width: 340px; padding: 12px; z-index: 4;
+  display: flex; flex-direction: column; gap: 8px; }
+.chat-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+.chat-title span { text-transform: none; letter-spacing: 0; opacity: 0.7; }
+#chat-log { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; user-select: text; }
+#chat-log:empty { display: none; }
+.msg { padding: 7px 10px; border-radius: 10px; font-size: 12.5px; max-width: 92%; }
+.msg.moi { align-self: flex-end; background: #2457a8; }
+.msg.cerveau { align-self: flex-start; background: rgba(255, 255, 255, 0.06); }
+.msg.erreur { color: #ff8a8a; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.tag { font-size: 10.5px; padding: 1px 7px; border-radius: 8px; border: 1px solid currentColor; }
+#chat-form { display: flex; gap: 6px; }
+#chat-input { flex: 1; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.3); color: var(--text); font: inherit; outline: none; user-select: text; }
+#chat-input:focus { border-color: var(--accent); }
+#chat-form button { padding: 0 12px; border-radius: 9px; border: 0; background: #2f6fd1; color: #fff; font: inherit; cursor: pointer; }
+#chat-form button:disabled { opacity: 0.5; cursor: wait; }
+#right-col { position: fixed; top: 84px; right: 16px; bottom: 182px; width: 340px; z-index: 4;
+  display: flex; flex-direction: column; gap: 12px; pointer-events: none; }
+#right-col > * { pointer-events: auto; }
+#right-col #info { position: static; width: auto; min-height: 0; flex: 0 1 auto; overflow-y: auto; }
+#right-col #chat { position: static; width: auto; margin-top: auto; flex: none; }
+
+/* ---------- Choix de l'espèce ---------- */
+select.espece { width: 100%; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line); cursor: pointer;
+  background: rgba(255, 255, 255, 0.04); color: var(--text); font: inherit; outline: none; }
+select.espece:focus { border-color: var(--accent); }
+select.espece option { background: #0e1424; }
+
+/* ---------- Arène ---------- */
+#arene { position: fixed; left: calc(var(--panel-w) + 16px); top: 16px; width: 300px; padding: 10px 12px 12px; z-index: 4; }
+#arene[hidden] { display: none; }
+.arene-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.arene-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+.arene-mode { font-size: 11px; padding: 2px 8px; border-radius: 10px; border: 1px solid currentColor; }
+#arene-canvas { width: 100%; aspect-ratio: 1; display: block; border-radius: 8px; cursor: crosshair; }
+.arene-stats { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; font-size: 12px; color: var(--muted); }
+.arene-stats b { color: var(--text); }
+.faim { display: flex; align-items: center; gap: 6px; }
+.jauge { display: inline-block; width: 70px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.jauge i { display: block; height: 100%; width: 0; background: #ffb454; }
+.arene-btns { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 6px; }
+.arene-btns button { padding: 6px 4px; border-radius: 8px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04);
+  color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.arene-btns button:hover { background: rgba(90, 168, 255, 0.15); }
+.arene-btns button.on { border-color: #ff6b6b; background: rgba(255, 80, 80, 0.15); }

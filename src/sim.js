@@ -1,29 +1,15 @@
 // Simulation d'activité : neurones intègre-et-tire à fuite, synapses avec délais de
 // propagation, inhibition globale (homéostasie) pour garder un régime stable.
-import { REGIONS, REGION_INDEX, mulberry32 } from './anatomy.js';
+import { REGIONS, REGION_INDEX, ESPECE, mulberry32 } from './anatomy.js';
 
 export const SIM_HZ = 120;          // pas de simulation par seconde
 export const RING = 256;            // délai maximal (en pas)
 const BASE_NOISE = 0.0015;          // probabilité de décharge spontanée par pas
 const TARGET_RATE = 0.006;          // fraction de neurones actifs visée par pas
 const W_LOCAL = 0.5;
-export const CORTEX = ['frontal', 'parietal', 'temporal', 'occipital'];
-
-// [source, cible, probabilité par neurone source, poids]
-export const CONNECTIONS = [
-  ['thalamus', 'frontal', 0.25, 0.55], ['thalamus', 'parietal', 0.25, 0.55],
-  ['thalamus', 'temporal', 0.2, 0.55], ['thalamus', 'occipital', 0.3, 0.6],
-  ['thalamus', 'amygdala', 0.15, 0.6],
-  ['frontal', 'thalamus', 0.04, 0.5], ['parietal', 'thalamus', 0.04, 0.5],
-  ['occipital', 'thalamus', 0.04, 0.5], ['temporal', 'thalamus', 0.04, 0.5],
-  ['occipital', 'parietal', 0.08, 0.55], ['occipital', 'temporal', 0.08, 0.55],
-  ['parietal', 'frontal', 0.07, 0.55], ['temporal', 'frontal', 0.06, 0.55], ['frontal', 'parietal', 0.05, 0.5],
-  ['temporal', 'hippocampus', 0.08, 0.6], ['hippocampus', 'temporal', 0.25, 0.55], ['hippocampus', 'frontal', 0.2, 0.5],
-  ['amygdala', 'hippocampus', 0.3, 0.55], ['hippocampus', 'amygdala', 0.15, 0.5], ['temporal', 'amygdala', 0.05, 0.6],
-  ['amygdala', 'frontal', 0.3, 0.5], ['amygdala', 'brainstem', 0.3, 0.6], ['amygdala', 'thalamus', 0.2, 0.5],
-  ['frontal', 'brainstem', 0.03, 0.6], ['frontal', 'cerebellum', 0.02, 0.5],
-  ['brainstem', 'cerebellum', 0.35, 0.55], ['cerebellum', 'thalamus', 0.12, 0.55], ['brainstem', 'thalamus', 0.3, 0.55],
-];
+// Connexions entre régions et liaisons inter-hémisphères : définies par l'espèce
+export const CONNECTIONS = ESPECE.connections;
+const CALLOSAL = ESPECE.callosal ?? [];
 
 // Point de contrôle des faisceaux longs : courbés vers l'intérieur (substance blanche)
 export function tractControl(ax, ay, az, bx, by, bz) {
@@ -93,7 +79,7 @@ export function buildConnectome(neurons, { seed = 99, localK = 6, localRadius = 
     }
   }
   // Corps calleux : liaisons entre hémisphères
-  for (const id of CORTEX) {
+  for (const id of CALLOSAL) {
     const pool = pools[REGION_INDEX[id]];
     for (const i of pool.A) {
       if (rand() >= 0.03) continue;
@@ -137,6 +123,17 @@ export class NeuralSim {
     for (let i = 0; i < N; i++) this.regionSize[this.region[i]]++;
     this.regionRate = new Float32Array(R);
     this._rs = new Uint32Array(R);
+    // Côté de chaque neurone (0 = gauche, 1 = droite) et activité par région ET par côté
+    this.side = new Uint8Array(N);
+    this.sideSize = new Uint32Array(R * 2);
+    for (let i = 0; i < N; i++) {
+      this.side[i] = neurons.positions[i * 3] < 0 ? 0 : 1;
+      this.sideSize[this.region[i] * 2 + this.side[i]]++;
+    }
+    this.sideRate = new Float32Array(R * 2);
+    this._rs2 = new Uint32Array(R * 2);
+    // Entrée sensorielle externe par neurone (même unité que drive : 1 = activité de fond)
+    this.input = new Float32Array(N);
     this._p = new Float32Array(R);
     this.lastFired = 0;
     this.totalSpikes = 0;
@@ -152,7 +149,7 @@ export class NeuralSim {
 
   reset() {
     this.u.fill(0); this.refr.fill(0); this.glow.fill(0); this.ring.fill(0);
-    this.boost.fill(0); this.pulses.n = 0; this.rate = 0; this.regionRate.fill(0);
+    this.boost.fill(0); this.pulses.n = 0; this.rate = 0; this.regionRate.fill(0); this.sideRate.fill(0); this.input.fill(0);
   }
 
   step() {
@@ -174,6 +171,8 @@ export class NeuralSim {
     const gain = params.excit * homeo;
     const leak = params.leak, thr = params.threshold, refrT = params.refractory;
     const rs = this._rs; rs.fill(0);
+    const rs2 = this._rs2; rs2.fill(0);
+    const input = this.input, side = this.side, pIn = BASE_NOISE * params.noise;
     let nf = 0;
 
     for (let i = 0; i < N; i++) {
@@ -181,9 +180,9 @@ export class NeuralSim {
       const inp = ring[base + i]; ring[base + i] = 0;
       if (refr[i] > 0) { refr[i]--; u[i] = 0; continue; }
       let v = u[i] * leak + inp;
-      if (v >= thr || Math.random() < this._p[region[i]]) {
+      if (v >= thr || Math.random() < this._p[region[i]] + pIn * input[i]) {
         v = 0; refr[i] = refrT; glow[i] = 1;
-        this.fired[nf++] = i; rs[region[i]]++;
+        this.fired[nf++] = i; rs[region[i]]++; rs2[region[i] * 2 + side[i]]++;
       }
       u[i] = v;
     }
@@ -219,6 +218,10 @@ export class NeuralSim {
     this.rate = this.rate * 0.97 + (nf / N) * 0.03;
     for (let r = 0; r < R; r++) {
       this.regionRate[r] = this.regionRate[r] * 0.97 + (rs[r] / this.regionSize[r]) * 0.03;
+      for (let s = 0; s < 2; s++) {
+        const k = r * 2 + s;
+        if (this.sideSize[k]) this.sideRate[k] = this.sideRate[k] * 0.97 + (rs2[k] / this.sideSize[k]) * 0.03;
+      }
     }
     this.lastFired = nf;
     this.totalSpikes += nf;
